@@ -1,2 +1,2 @@
 # image-section-remover
-# Demo- https://mish0as.github.io/image-section-remover/
+# Demo- https://sirat-o.github.io/image-section-remover/

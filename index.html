@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CutMask</title>
+  <!-- Cropper.js (kept only for crop tool) -->
+  <link href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" rel="stylesheet" />
+  <!-- Font Awesome 6 (free) for icons in tools-panel -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    .header { text-align: center; }
+    .main-title {
+      font-size: clamp(2.5rem, 6vw, 3.5rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, #00ff9d, #6366f1, #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle { color: #aaa; font-size: 1.1rem; }
+
+    .upload-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 60px;
+      padding: 0.5rem 1rem 0.5rem 1.5rem;
+      margin: 0 auto;
+      width: fit-content;
+    }
+    .file-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+      color: #ccc;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .file-label:hover { color: #00ff9d; }
+    .file-label svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+    #fileInput {
+      position: absolute;
+      width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    }
+    .upload-hint {
+      font-size: 0.9rem;
+      color: #888;
+      border-left: 1px solid #333;
+      padding-left: 1rem;
+    }
+    .upload-hint strong { color: #00ff9d; font-weight: 500; }
+
+    .tools-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      padding: 1.5rem;
+      background: rgba(255,255,255,0.02);
+      backdrop-filter: blur(16px);
+      border-radius: 32px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .tool-button {
+      padding: 0.75rem 1.25rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 40px;
+      background: rgba(0,0,0,0.3);
+      color: #ddd;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(4px);
+    }
+    .tool-button i {
+      font-size: 1.1rem;
+      width: 1.2rem;
+      text-align: center;
+    }
+    .tool-button.active {
+      background: #00ff9d;
+      color: #0a0a0a;
+      border-color: #00ff9d;
+    }
+    .tool-icon { width: 18px; height: 18px; fill: currentColor; }
+
+    .tool-options {
+      display: none;
+      align-items: center;
+      gap: 2rem;
+      justify-content: center;
+      padding: 1rem 1.5rem;
+      background: rgba(255,255,255,0.02);
+      border-radius: 48px;
+      border: 1px solid #222;
+      flex-wrap: wrap;
+    }
+    .tool-options.active { display: flex; }
+    .option-group { display: flex; align-items: center; gap: 0.5rem; }
+    .option-label { color: #aaa; font-size: 0.9rem; }
+    .option-input {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 0.4rem 0.8rem;
+      border-radius: 30px;
+      color: white;
+    }
+    .option-input[type="range"] { width: 120px; }
+    .option-value { min-width: 2rem; color: #00ff9d; }
+
+    .canvas-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .canvas-container {
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid #222;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-width: 100%;
+    }
+    #canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      cursor: crosshair;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .action-button {
+      padding: 0.8rem 2rem;
+      border: none;
+      border-radius: 40px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .action-button.primary {
+      background: #00ff9d;
+      color: #0a0a0a;
+    }
+    .action-button.primary:hover { box-shadow: 0 0 20px #00ff9d; transform: scale(1.02); }
+    .action-button.secondary {
+      background: rgba(255,255,255,0.05);
+      color: white;
+      border: 1px solid #333;
+    }
+    .action-button.secondary:hover { background: #222; }
+    .download-link {
+      padding: 0.8rem 2rem;
+      background: #6366f1;
+      color: white;
+      text-decoration: none;
+      border-radius: 40px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      opacity: 0.5;
+      pointer-events: none;
+      transition: 0.2s;
+    }
+    .download-link.active { opacity: 1; pointer-events: auto; }
+    .instructions {
+      color: #888;
+      font-size: 0.95rem;
+      background: #111;
+      padding: 0.6rem 1.5rem;
+      border-radius: 40px;
+      border: 1px solid #222;
+    }
+    .notification {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      padding: 0.8rem 2rem; border-radius: 60px; background: #00ff9d; color: #0a0a0a;
+      font-weight: 600; box-shadow: 0 10px 30px #00ff9d4d; z-index: 999;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <h1 class="main-title">CutMask</h1>
+  </header>
+
+  <div class="upload-row">
+    <label for="fileInput" class="file-label">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Choose image
+    </label>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <!-- tools panel with Font Awesome icons (replaced all inline SVG with <i>) -->
+  <div class="tools-panel">
+    <button id="cutBtn" class="tool-button active"><i class="fas fa-cut"></i> Remove & join</button>
+    <button id="blackoutBtn" class="tool-button"><i class="fas fa-circle"></i> Black-out</button>
+    <button id="blurBtn" class="tool-button"><i class="fas fa-tint"></i> Blur</button>
+    <button id="pixelateBtn" class="tool-button"><i class="fas fa-th"></i> Pixelate</button>
+    <button id="highlightBtn" class="tool-button"><i class="fas fa-highlighter"></i> Highlight</button>
+    <button id="drawBtn" class="tool-button"><i class="fas fa-pencil-alt"></i> Draw</button>
+    <button id="rotateBtn" class="tool-button"><i class="fas fa-undo-alt"></i> Rotate</button>
+    <button id="cropBtn" class="tool-button"><i class="fas fa-crop-alt"></i> Crop</button>
+  </div>
+
+  <div class="tool-options" id="blackoutOptions"><div class="option-group"><label class="option-label">Color:</label><input type="color" id="blackoutColor" class="option-input" value="#000000"></div></div>
+  <div class="tool-options" id="blurOptions"><div class="option-group"><label class="option-label">Blur:</label><input type="range" id="blurAmount" min="1" max="50" value="10"><span class="option-value" id="blurAmountValue">10</span></div></div>
+  <div class="tool-options" id="pixelateOptions"><div class="option-group"><label class="option-label">Pixel size:</label><input type="range" id="pixelateSize" min="2" max="50" value="10"><span class="option-value" id="pixelateSizeValue">10</span></div></div>
+  <div class="tool-options" id="drawOptions"><div class="option-group"><label class="option-label">Color:</label><input type="color" id="drawColor" value="#ff0000"></div><div class="option-group"><label class="option-label">Brush:</label><input type="range" id="brushSize" min="1" max="50" value="5"><span class="option-value" id="brushSizeValue">5</span></div></div>
+  <div class="tool-options" id="cropOptions"><div class="option-group"><label class="option-label">Aspect:</label><select id="aspectRatio" class="option-input"><option value="NaN">Free</option><option value="1">1:1</option><option value="4/3">4:3</option><option value="16/9">16:9</option></select></div></div>
+  <div class="tool-options" id="highlightOptions"><div class="option-group"><label class="option-label">Color:</label><input type="color" id="highlightColor" value="#FFFF00"></div></div>
+
+  <section class="canvas-section">
+    <div class="instructions" id="instructions">⬆️ pick an image, then select a tool</div>
+    <div class="canvas-container">
+      <canvas id="canvas"></canvas>
+    </div>
+    <div class="action-buttons">
+      <button id="applyBtn" class="action-button primary" style="display: none;">Apply changes</button>
+      <a id="downloadLink" class="download-link" download="cutmask-image.png">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9h-4V3H9v6H5l7 7 7-7z"/><path d="M5 18v2h14v-2"/></svg>
+        Download
+      </a>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+<script>
+  (function() {
+    // --- DOM elements ---
+    const fileInput = document.getElementById('fileInput');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const downloadLink = document.getElementById('downloadLink');
+    const applyBtn = document.getElementById('applyBtn');
+    const instructions = document.getElementById('instructions');
+
+    // Tool buttons
+    const cutBtn = document.getElementById('cutBtn');
+    const blackoutBtn = document.getElementById('blackoutBtn');
+    const blurBtn = document.getElementById('blurBtn');
+    const pixelateBtn = document.getElementById('pixelateBtn');
+    const highlightBtn = document.getElementById('highlightBtn');
+    const drawBtn = document.getElementById('drawBtn');
+    const rotateBtn = document.getElementById('rotateBtn');
+    const cropBtn = document.getElementById('cropBtn');
+    const toolButtons = { cut:cutBtn, blackout:blackoutBtn, blur:blurBtn, pixelate:pixelateBtn, highlight:highlightBtn, draw:drawBtn, rotate:rotateBtn, crop:cropBtn };
+
+    // Options panels
+    const blackoutOptions = document.getElementById('blackoutOptions');
+    const blurOptions = document.getElementById('blurOptions');
+    const pixelateOptions = document.getElementById('pixelateOptions');
+    const drawOptions = document.getElementById('drawOptions');
+    const cropOptions = document.getElementById('cropOptions');
+    const highlightOptions = document.getElementById('highlightOptions');
+    const toolOptions = { blackout:blackoutOptions, blur:blurOptions, pixelate:pixelateOptions, draw:drawOptions, crop:cropOptions, highlight:highlightOptions };
+
+    // Controls
+    const blackoutColor = document.getElementById('blackoutColor');
+    const blurAmount = document.getElementById('blurAmount');
+    const blurAmountValue = document.getElementById('blurAmountValue');
+    const pixelateSize = document.getElementById('pixelateSize');
+    const pixelateSizeValue = document.getElementById('pixelateSizeValue');
+    const drawColor = document.getElementById('drawColor');
+    const brushSize = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+    const aspectRatio = document.getElementById('aspectRatio');
+    const highlightColor = document.getElementById('highlightColor');
+
+    // State
+    let img = new Image();
+    let currentTool = 'cut';
+    let isDragging = false, isDrawing = false;
+    let hasSelection = false;
+    let startX, startY, endX, endY, lastX, lastY;
+    let scaleFactor = 1;
+    let cropper = null;
+
+    // --- UPLOAD: ---
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showNotification('Not an image', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        img = new Image();
+        img.onload = () => {
+          // set canvas size to image natural size
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          // scaling for display (preserve aspect)
+          const maxW = Math.min(window.innerWidth - 80, 800);
+          const maxH = window.innerHeight * 0.6;
+          scaleFactor = Math.min(maxW / img.width, maxH / img.height, 1);
+          canvas.style.width = `${img.width * scaleFactor}px`;
+          canvas.style.height = `${img.height * scaleFactor}px`;
+          
+          // destroy cropper if any
+          if (cropper) { cropper.destroy(); cropper = null; }
+          if (currentTool === 'crop') setTimeout(() => initCropper(), 10);
+
+          updateDownloadLink();
+          instructions.textContent = `✅ ${img.width}×${img.height} · drag to select area`;
+          showNotification('image ready', 'success');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+      // reset input to allow re-upload same file
+      fileInput.value = '';
+    });
+
+    // tool selection
+    function selectTool(tool) {
+      currentTool = tool;
+      Object.values(toolButtons).forEach(btn => btn.classList.remove('active'));
+      toolButtons[tool]?.classList.add('active');
+      Object.values(toolOptions).forEach(opt => opt?.classList.remove('active'));
+      if (toolOptions[tool]) toolOptions[tool].classList.add('active');
+
+      if (tool === 'crop') {
+        initCropper();
+        applyBtn.style.display = 'flex';
+      } else {
+        if (cropper) { cropper.destroy(); cropper = null; }
+        applyBtn.style.display = hasSelection ? 'flex' : 'none';
+      }
+      if (tool === 'rotate') {
+        rotateImage(); // immediate rotate
+      }
+      updateInstructions();
+    }
+
+    function initCropper() {
+      if (cropper) cropper.destroy();
+      if (!canvas.width) return;
+      cropper = new Cropper(canvas, {
+        aspectRatio: eval(aspectRatio.value),
+        viewMode: 1,
+        autoCropArea: 0.8,
+      });
+    }
+
+    // mouse handlers (simplified, no undo)
+    function handleMouseDown(e) {
+      if (!img.src || currentTool === 'crop' || currentTool === 'rotate') return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / scaleFactor;
+      const y = (e.clientY - rect.top) / scaleFactor;
+      if (currentTool === 'draw') {
+        isDrawing = true;
+        lastX = x; lastY = y;
+        ctx.beginPath(); ctx.moveTo(x, y);
+        ctx.strokeStyle = drawColor.value;
+        ctx.lineWidth = parseInt(brushSize.value);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        return;
+      }
+      isDragging = true;
+      startX = x; startY = y;
+      hasSelection = false;
+      applyBtn.style.display = 'flex';
+    }
+
+    function handleMouseMove(e) {
+      if (!img.src || currentTool === 'crop' || currentTool === 'rotate') return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / scaleFactor;
+      const y = (e.clientY - rect.top) / scaleFactor;
+      if (currentTool === 'draw' && isDrawing) {
+        ctx.lineTo(x, y); ctx.stroke();
+        lastX = x; lastY = y;
+        return;
+      }
+      if (!isDragging) return;
+      endX = x; endY = y;
+      drawSelection();
+    }
+
+    function handleMouseUp() {
+      if (currentTool === 'draw' && isDrawing) {
+        isDrawing = false;
+        updateDownloadLink();
+        return;
+      }
+      if (!isDragging || !img.src) return;
+      isDragging = false;
+      hasSelection = true;
+      if (currentTool === 'blur' || currentTool === 'pixelate') {
+        applyCurrentTool();
+      }
+    }
+
+    function drawSelection() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const x = Math.min(startX, endX);
+      const y = Math.min(startY, endY);
+      const w = currentTool === 'cut' ? canvas.width : Math.abs(endX - startX);
+      const h = Math.abs(endY - startY);
+      ctx.fillStyle = getSelectionColor();
+      ctx.fillRect(currentTool === 'cut' ? 0 : x, y, w, h);
+      ctx.strokeStyle = getBorderColor();
+      ctx.lineWidth = 2;
+      ctx.strokeRect(currentTool === 'cut' ? 0 : x, y, w, h);
+    }
+
+    function getSelectionColor() {
+      const map = { cut:'rgba(239,68,68,0.3)', blackout:'rgba(0,255,157,0.2)', blur:'rgba(99,102,241,0.2)', pixelate:'rgba(245,158,11,0.2)', highlight:'rgba(255,255,0,0.2)' };
+      return map[currentTool] || 'rgba(255,255,255,0.2)';
+    }
+    function getBorderColor() {
+      const map = { cut:'#ef4444', blackout:blackoutColor.value, blur:'#6366f1', pixelate:'#f59e0b', highlight:'#FFFF00' };
+      return map[currentTool] || '#fff';
+    }
+
+    // apply functions (no undo)
+    function applyCurrentTool() {
+      if (!hasSelection && currentTool !== 'crop') { showNotification('make a selection', 'error'); return; }
+      switch (currentTool) {
+        case 'cut': applyCut(); break;
+        case 'blackout': applyBlackout(); break;
+        case 'blur': applyBlur(); break;
+        case 'pixelate': applyPixelate(); break;
+        case 'crop': applyCrop(); break;
+        case 'highlight': applyHighlight(); break;
+        default: return;
+      }
+      hasSelection = false;
+      applyBtn.style.display = 'none';
+      updateDownloadLink();
+    }
+
+    function applyCut() {
+      const y = Math.min(startY, endY);
+      const h = Math.abs(endY - startY);
+      const newH = canvas.height - h;
+      const temp = document.createElement('canvas');
+      const tCtx = temp.getContext('2d');
+      temp.width = canvas.width; temp.height = newH;
+      tCtx.drawImage(canvas, 0,0, canvas.width, y, 0,0, canvas.width, y);
+      tCtx.drawImage(canvas, 0, y+h, canvas.width, canvas.height-(y+h), 0, y, canvas.width, canvas.height-(y+h));
+      canvas.height = newH;
+      canvas.style.height = `${newH * scaleFactor}px`;
+      ctx.drawImage(temp,0,0);
+      img.src = canvas.toDataURL();
+    }
+    function applyBlackout() {
+      ctx.fillStyle = blackoutColor.value;
+      ctx.fillRect(Math.min(startX,endX), Math.min(startY,endY), Math.abs(endX-startX), Math.abs(endY-startY));
+      img.src = canvas.toDataURL();
+    }
+    function applyBlur() {
+      const x = Math.min(startX,endX), y = Math.min(startY,endY), w = Math.abs(endX-startX), h = Math.abs(endY-startY);
+      const amount = parseInt(blurAmount.value);
+      ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0);
+      blurRegion(x,y,w,h,amount);
+      img.src = canvas.toDataURL();
+    }
+    function blurRegion(x,y,w,h,amt) {
+      const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+      const tCtx = tmp.getContext('2d');
+      tCtx.drawImage(canvas, x,y,w,h,0,0,w,h);
+      tCtx.filter = `blur(${amt}px)`;
+      tCtx.drawImage(tmp,0,0);
+      ctx.drawImage(tmp,0,0,w,h,x,y,w,h);
+    }
+    function applyPixelate() {
+      const x = Math.min(startX,endX), y = Math.min(startY,endY), w = Math.abs(endX-startX), h = Math.abs(endY-startY);
+      const sz = parseInt(pixelateSize.value);
+      ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0);
+      pixelateRegion(x,y,w,h,sz);
+      img.src = canvas.toDataURL();
+    }
+    function pixelateRegion(x,y,w,h,sz) {
+      const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+      const tCtx = tmp.getContext('2d');
+      tCtx.drawImage(canvas, x,y,w,h,0,0,w,h);
+      const scaledW = Math.max(1, Math.floor(w/sz)), scaledH = Math.max(1, Math.floor(h/sz));
+      const small = document.createElement('canvas'); small.width = scaledW; small.height = scaledH;
+      const sCtx = small.getContext('2d');
+      sCtx.imageSmoothingEnabled = false;
+      sCtx.drawImage(tmp,0,0,scaledW,scaledH);
+      tCtx.imageSmoothingEnabled = false;
+      tCtx.drawImage(small,0,0,scaledW,scaledH,0,0,w,h);
+      ctx.drawImage(tmp,0,0,w,h,x,y,w,h);
+    }
+    function applyHighlight() {
+      const x = Math.min(startX,endX), y = Math.min(startY,endY), w = Math.abs(endX-startX), h = Math.abs(endY-startY);
+      ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0);
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = highlightColor.value;
+      ctx.fillRect(x,y,w,h);
+      ctx.globalAlpha = 1;
+      img.src = canvas.toDataURL();
+    }
+    function applyCrop() {
+      if (!cropper) return;
+      const cropped = cropper.getCroppedCanvas();
+      canvas.width = cropped.width; canvas.height = cropped.height;
+      canvas.style.width = `${cropped.width * scaleFactor}px`;
+      canvas.style.height = `${cropped.height * scaleFactor}px`;
+      ctx.drawImage(cropped,0,0);
+      img.src = canvas.toDataURL();
+      cropper.destroy(); cropper = null;
+    }
+    function rotateImage() {
+      if (!img.src) return;
+      const angle = 90;
+      const temp = document.createElement('canvas');
+      const tCtx = temp.getContext('2d');
+      temp.width = canvas.height; temp.height = canvas.width;
+      tCtx.translate(temp.width/2, temp.height/2);
+      tCtx.rotate(angle * Math.PI/180);
+      tCtx.drawImage(canvas, -canvas.width/2, -canvas.height/2);
+      canvas.width = temp.width; canvas.height = temp.height;
+      canvas.style.width = `${canvas.width * scaleFactor}px`;
+      canvas.style.height = `${canvas.height * scaleFactor}px`;
+      ctx.drawImage(temp,0,0);
+      img.src = canvas.toDataURL();
+      updateDownloadLink();
+    }
+
+    function updateDownloadLink() {
+      if (img.src) { downloadLink.href = canvas.toDataURL(); downloadLink.classList.add('active'); }
+      else downloadLink.classList.remove('active');
+    }
+    function showNotification(msg, type='success') {
+      const n = document.createElement('div'); n.className='notification'; n.textContent=msg;
+      document.body.appendChild(n);
+      setTimeout(()=>n.remove(),2000);
+    }
+    function updateInstructions() {
+      if (!img.src) instructions.textContent = '⬆️ choose an image above';
+      else instructions.textContent = `tool: ${currentTool} — drag on canvas`;
+    }
+
+    // event listeners
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', ()=> { isDragging=false; isDrawing=false; });
+
+    // tool buttons
+    cutBtn.addEventListener('click',()=>selectTool('cut'));
+    blackoutBtn.addEventListener('click',()=>selectTool('blackout'));
+    blurBtn.addEventListener('click',()=>selectTool('blur'));
+    pixelateBtn.addEventListener('click',()=>selectTool('pixelate'));
+    highlightBtn.addEventListener('click',()=>selectTool('highlight'));
+    drawBtn.addEventListener('click',()=>selectTool('draw'));
+    rotateBtn.addEventListener('click',()=>selectTool('rotate'));
+    cropBtn.addEventListener('click',()=>selectTool('crop'));
+
+    // options display
+    blurAmount.addEventListener('input',()=>blurAmountValue.textContent=blurAmount.value);
+    pixelateSize.addEventListener('input',()=>pixelateSizeValue.textContent=pixelateSize.value);
+    brushSize.addEventListener('input',()=>brushSizeValue.textContent=brushSize.value);
+    aspectRatio.addEventListener('change',()=>{ if(cropper) cropper.setAspectRatio(eval(aspectRatio.value)); });
+
+    applyBtn.addEventListener('click', applyCurrentTool);
+
+    // init
+    selectTool('cut');
+  })();
+</script>
+</body>
+</html>
